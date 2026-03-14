@@ -27,7 +27,7 @@ The system utilizes a hybrid update mechanism to ensure both real-time accuracy 
 
 ## 5. Data Storage Strategy
 * **Persistent Storage (MongoDB):** Stores heavy, structural repository data. This includes historical commit trends, language distributions, and contributor lists.
-* **Dynamic Storage / Cache (Redis):** Stores highly volatile or frequently accessed data, such as real-time star counts or the final assembled JSON payload for the frontend `/api/repos` endpoint.
+* **Dynamic Storage / Cache (Redis):** Stores highly volatile or frequently accessed data, such as real-time star counts or the final assembled JSON payload for the frontend `/api/repositories` endpoint.
 
 ## 6. Scalability Plan (300 to 10,000 Repositories)
 Scaling from 300 to 10,000 repositories creates massive bursts of webhook traffic (e.g., when an organization pushes a global update).
@@ -44,7 +44,7 @@ To ensure fast frontend response times:
 * **Unavailable Repositories:** Workers wrap API calls in standard `try/catch` blocks. If a 404 is returned (repo deleted or made private), the worker flags the repository status as "Archived/Unavailable" in MongoDB, and the frontend updates its UI accordingly.
 
 ## 9. API Flow (Frontend to Backend)
-1. The Website Frontend sends a `GET /api/repos` request.
+1. The Website Frontend sends a `GET /api/repositories` request.
 2. The NestJS API Service intercepts the request and checks Redis for a cached response.
 3. **Cache Hit:** Redis returns the payload immediately.
 4. **Cache Miss:** The API Service queries MongoDB for the pre-aggregated data, formats it, asynchronously updates the Redis cache with a new TTL (Time To Live), and returns the JSON payload to the frontend.
