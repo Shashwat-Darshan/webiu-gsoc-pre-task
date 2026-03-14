@@ -1,0 +1,42 @@
+Task 2 — Development
+GitHub Repository Intelligence Analyzer
+Objective
+Build a tool that analyzes multiple GitHub repositories and generates insights about their activity, complexity, and learning difficulty.
+
+Requirements
+Input Handling
+Accept a list of GitHub repository URLs as input.
+
+GitHub API Integration
+Collect repository data such as stars, forks, contributors, languages, and commits.
+
+Activity Score
+Design and implement a custom formula to calculate repository activity based on factors like commits, contributors, or issue activity.
+
+Complexity Estimation
+Estimate repository complexity using metrics such as file count, language diversity, or dependency files.
+
+Learning Difficulty Classification
+Classify repositories as Beginner, Intermediate, or Advanced, based on your analysis logic.
+
+Structured Output
+Generate a structured report summarizing insights for each repository.
+
+Edge Case Handling
+Ensure the tool works even when repositories have missing data or limited activity.
+
+Efficiency Considerations
+Minimize redundant API requests and explain how your tool handles rate limits.
+
+Documentation
+Provide clear documentation explaining scoring formulas, assumptions, and limitations.
+
+Example Analysis
+Run the tool on at least five repositories and include the generated reports.
+
+Deliverables
+Source code
+Sample outputs for multiple repositories
+Documentation explaining scoring methods and design decisions
+Instructions to run the tool
+deploy the tool and provide the url to access

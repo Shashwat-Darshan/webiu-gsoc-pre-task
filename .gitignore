@@ -84,5 +84,4 @@ coverage/
 logs/
 pip-log.txt
 
-# ── Task brief files (not submission artefacts) ────────────────────────────
-task.txt
+
