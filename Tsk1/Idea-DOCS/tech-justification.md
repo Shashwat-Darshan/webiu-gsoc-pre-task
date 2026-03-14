@@ -2,9 +2,9 @@
 
 | Layer | Technology | Justification |
 |-------|-----------|--------------|
-| **Ingestion Layer** | Serverless Functions (AWS Lambda / Vercel) | Replaces a traditional always-on Node.js worker for webhooks. Serverless scales to exactly zero during inactive periods (saving costs) and instantly scales to thousands of concurrent executions during massive organization-wide push events without locking the main API. |
+| **Backend Framework** | NestJS (TypeScript) | Already adopted by the Webiu project; strong module system; native support for GraphQL, queues, scheduling, and caching; decorator-based design matches the existing codebase |
 | **API style** | REST + GraphQL (dual) | REST for simple consumers and webhooks; GraphQL lets the Angular frontend request exactly the data it needs per component, eliminating over-fetching across 300+ repo displays |
-| **Message Queue** | Amazon SQS / Upstash Kafka (Serverless) | Decouples the webhook ingestion from the database writes. Serverless queues provide native dead-letter queues (DLQ) and automatic retries for GitHub API rate-limit failures (HTTP 429) without managing Redis infrastructure. |
+| **Job Queue** | BullMQ + Redis | Redis-native, battle-tested in the Node.js ecosystem; first-class NestJS integration via `@nestjs/bull`; provides retry, exponential backoff, concurrency control, priority, and DLQ out of the box |
 | **Persistent storage** | MongoDB + Mongoose | Already used in Webiu; flexible document model suits schemaless GitHub API responses; easy to add new fields as GitHub API evolves; indexing on `owner`, `name`, `stars`, `updatedAt` for fast queries |
 | **Cache** | Redis | Sub-millisecond reads; native TTL support per key; used as dual-purpose (queue + cache) to minimize infrastructure; `@nestjs/cache-manager` provides transparent interceptor-level caching |
 | **Scheduling** | `@nestjs/schedule` | Built-in NestJS cron decorator; no extra infrastructure; integrates with Bull for job dispatch |
