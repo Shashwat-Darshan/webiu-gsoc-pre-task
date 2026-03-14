@@ -215,3 +215,5 @@ Discovery    API Optimization      CI/CD          Admin Feat.   Lightweight AI  
 This proposal improves WebiU through **measurable performance gains**, **safer delivery practices**, **operational admin controls**, and **practical AI enhancements** — all while keeping implementation complexity manageable for a 350-hour GSoC timeline.
 
 Every proposed change extends the existing NestJS + Angular codebase rather than replacing it, ensuring continuity for maintainers and a smooth handover at the end of the programme.
+
+The production-ready target architecture this work moves toward is documented in **[Task 1 — Scalable GitHub Data Aggregation System](./Tsk1/README.md)**. That design (NestJS · BullMQ · Redis · MongoDB · webhooks) is the north star; the GSoC phases above are the incremental, validated path to get there without a disruptive rewrite.

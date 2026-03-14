@@ -58,6 +58,8 @@ To ensure fast frontend response times:
 | **Persistent Storage** | MongoDB | Its flexible BSON document model easily accommodates the deeply nested and varied JSON payloads returned by GitHub's APIs |
 | **Cache** | Redis | The industry standard for high-performance, in-memory caching; dual-purpose as both job queue backend and HTTP response cache to minimise infrastructure |
 
+> **GSoC Connection:** This architecture is the production-ready north star for the GSoC idea. The phases in [`GSOC_IDEA.md`](../GSOC_IDEA.md) are the incremental delivery path toward this design — BullMQ replaces the current in-memory cache, MongoDB activates the scaffolded persistence layer, and the webhook ingestion pipeline is the Phase 6 PoC target.
+
 See full documentation:
 
 - [Architecture Diagram](./Idea-DOCS/architecture-diagram.md) — Mermaid system diagram, component table, scaling diagram
