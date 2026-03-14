@@ -32,21 +32,21 @@ repos have changed since the last run and enqueues only those — not all 300.
 
 ### 2. Processing Layer
 
-Ingestion and processing are decoupled via **Bull/BullMQ** (Redis-backed message queue).
+Ingestion and processing are fully decoupled via **Amazon SQS / Upstash Kafka** (managed serverless queue) and **Serverless Workers** (AWS Lambda functions triggered by SQS messages).
 
-- Each repo update becomes one or more typed jobs (metadata, contributors, languages, issues).
-- Workers process jobs concurrently up to a configurable concurrency limit.
-- Jobs have automatic retry with **exponential backoff** (3 attempts, 2 s / 8 s / 32 s delays).
-- A **Dead Letter Queue** captures permanently failed jobs for alerting and manual replay.
+- The Serverless Function (webhook receiver) enqueues a typed payload and immediately returns `200 OK` to GitHub — no synchronous processing on the hot path.
+- Each SQS message triggers exactly one Lambda worker invocation — no concurrency configuration needed; scales automatically with queue depth.
+- SQS provides native **exponential-backoff retry** (up to configurable max attempts) and a **Dead Letter Queue** for permanently failed messages — no custom retry logic required.
+- Each worker fetches only its specific data domain from the GitHub GraphQL API using **ETag conditional requests** — if the data hasn't changed, GitHub returns `304 Not Modified` at zero rate-limit cost.
 
-Parallel worker domains (each independently restartable):
+Parallel worker domains (each independently deployable and restartable):
 
-| Worker | Data Domain | Frequency |
+| Lambda Worker | Data Domain | Trigger Frequency |
 |--------|-------------|-----------|
-| `repo-metadata` | stars, forks, topics, description, homepage | Every webhook / cron |
-| `repo-contributors` | top contributors, contributor count | Weekly |
-| `repo-languages` | language percentages | On push |
-| `repo-issues` | open/closed issue count, PR stats | Every webhook / daily |
+| `worker-metadata` | stars, forks, topics, description, homepage | Every webhook event / cron sweep |
+| `worker-contributors` | top contributors, contributor count | Weekly cron |
+| `worker-languages` | language percentages | On push event |
+| `worker-issues` | open/closed issue count, PR stats | Every webhook event / daily cron |
 
 ### 3. Storage Layer
 
@@ -67,8 +67,8 @@ persistently. Data that is almost real-time (exact star count) is fetched fresh 
 when explicitly requested by the user, not on every page load.
 
 **Redis** is used for two distinct purposes:
-1. **Job queue backend** — Bull persists jobs, retries, and results here.
-2. **HTTP response cache** — API responses cached with TTLs matched to data volatility.
+1. **HTTP response cache** — NestJS API responses cached with TTLs matched to data volatility.
+2. **Rate-limit budget tracker** — shared store for `X-RateLimit-Remaining` values, readable across all Lambda worker invocations to prevent rate-limit exhaustion.
 
 | Data type | Cache TTL |
 |-----------|-----------|
@@ -79,15 +79,12 @@ when explicitly requested by the user, not on every page load.
 
 ### 4. API Layer
 
-The NestJS server exposes dual interfaces:
+The NestJS server is **serving-only** — it reads exclusively from MongoDB and Redis and never calls the GitHub API directly. It exposes dual interfaces:
 
-- **REST API** — standard CRUD-friendly endpoints for simple consumers.
-- **GraphQL API** — flexible queries for the Angular frontend to request exactly the
-  fields it needs per page/component (reduces over-fetching).
+- **REST API** — `GET /api/repositories`, `GET /api/repositories/:owner/:name`, and health/metrics endpoints.
+- **GraphQL API** — flexible field-selection queries for the Angular frontend, eliminating over-fetching across 300+ repo cards.
 
-A **Cache Interceptor** sits in front of both. On a miss it queries MongoDB, populates
-the cache, and returns data. During a GitHub outage, stale cached data is served with
-an `X-Data-Stale: true` header so the frontend can show an appropriate notice.
+A **Cache Interceptor** sits in front of both. On a miss it queries MongoDB, populates Redis with an appropriate TTL, and returns data. During a GitHub outage the ingestion layer pauses (SQS retries), but the NestJS API continues serving the last known good snapshot with an `X-Data-Stale: true` header — 100% frontend uptime regardless of GitHub availability.
 
 ---
 
@@ -95,30 +92,37 @@ an `X-Data-Stale: true` header so the frontend can show an appropriate notice.
 
 | Strategy | Detail |
 |----------|--------|
-| **Token Pool** | Maintain a pool of 3–5 GitHub personal access tokens; round-robin assign tokens to requests to multiply the effective rate limit |
-| **ETag Conditional Requests** | Store the ETag returned by GitHub per resource; send `If-None-Match` on next request — a 304 Not Modified costs 1 API point but returns no data, preserving bandwidth and rate budget |
-| **GraphQL Batching** | Use GitHub GraphQL API to fetch multiple repos' metadata in one query (up to 100 nodes per query vs 1 per REST call) |
-| **Incremental Sync** | Use `?since=` and `updated_at` to only fetch repos that changed — not the full list every cycle |
-| **Rate-Limit Budget Tracker** | Monitor `X-RateLimit-Remaining` headers; if below threshold (e.g., < 200), pause new ingestion jobs and resume when the window resets |
+| **Webhook-First Ingestion** | GitHub pushes updates to the Serverless Function — zero polling cost for real-time events |
+| **ETag Conditional Requests** | Lambda workers store the ETag returned by GitHub per resource and send `If-None-Match` on the next fetch — a `304 Not Modified` costs 0 rate-limit points and skips the DB write entirely |
+| **GraphQL Batching** | Workers use GitHub GraphQL v4 to batch up to 100 repo metadata nodes per request vs 1 per REST call — reduces a full sweep of 300 repos from ~1,200 calls to ~10–15 |
+| **Incremental Sync** | The cron trigger uses `updated_at` to enqueue only repos that changed since the last sweep — not all 300+ every 6 hours |
+| **Shared Rate-Limit Budget Tracker** | Each Lambda worker writes `X-RateLimit-Remaining` to Redis after every GitHub call. If the shared counter drops below threshold (e.g., < 200), workers stop dequeuing and wait for the reset window |
 
 ---
 
 ## Update Mechanism
 
 ```
-GitHub event occurs  →  Webhook POST to /webhooks/github
-                     →  Verify HMAC-SHA256 signature
-                     →  Parse event type + repo identifier
-                     →  Enqueue targeted update job
-                     →  Worker fetches only changed data
-                     →  MongoDB updated, cache invalidated
+GitHub event occurs
+    └─► POST to Serverless Function endpoint
+            └─► Verify HMAC-SHA256 signature  (reject 401 if invalid)
+            └─► Enqueue typed payload → Amazon SQS
+            └─► Return 200 OK to GitHub  (< 1s, no blocking)
+
+SQS message visible
+    └─► Trigger Lambda Worker
+            └─► Fetch changed data from GitHub API  (ETag conditional)
+            └─► Upsert document → MongoDB
+            └─► Invalidate Redis cache key for affected repo
 ```
 
-Cron fallback (every 6 h):
+Cron reconciliation fallback (every 6 h):
 ```
-GET /repos?org=c2siorg&sort=updated&per_page=100
-Filter: repos where updated_at > last_synced_at
-Enqueue only changed repos
+Cron Trigger fires
+    └─► Serverless Function calls GitHub list endpoint
+            └─► GET /orgs/c2siorg/repos?sort=updated&per_page=100
+            └─► Filter: repos where updated_at > last_synced_at
+            └─► Enqueue only changed repos → SQS
 ```
 
 ---
@@ -127,23 +131,25 @@ Enqueue only changed repos
 
 | Failure Type | Handling |
 |-------------|---------|
-| GitHub API 429 (rate limit) | Respect `Retry-After` header; pause token and resume; serve stale cache |
-| GitHub API 5xx | Retry with exponential backoff (3×); move to DLQ after max retries |
-| Unavailable repo (404) | Mark repo as `archived/deleted` in DB; surface gracefully on frontend |
-| Redis cache down | Fall through to MongoDB; log degraded-mode metric |
-| MongoDB down | Fall through to Redis cache; if both down, return 503 with user-friendly message |
-| Webhook signature invalid | Reject with 401; log for security review |
+| GitHub API 429 (rate limit) | Lambda worker respects `Retry-After` header; SQS message becomes invisible (visibility timeout) and is retried automatically; NestJS serving layer continues with stale cache |
+| GitHub API 5xx | SQS retries with native exponential backoff (configurable attempts); message moves to DLQ after max retries; alert fires for manual replay |
+| Unavailable repo (404) | Lambda worker marks repo as `archived/deleted` in MongoDB; NestJS API surfaces the status to the frontend gracefully |
+| Redis cache down | NestJS API falls through to MongoDB; logs degraded-mode metric; Lambda workers skip cache invalidation step silently |
+| MongoDB down | NestJS API falls through to Redis stale cache; if both unavailable, returns `503` with user-friendly message |
+| Webhook signature invalid | Serverless Function rejects with `401` before enqueuing — invalid payload never reaches SQS or workers |
+| SQS / queue unavailable | Serverless Function retries enqueue with exponential backoff; if queue is still unavailable, logs the raw payload to CloudWatch for manual replay |
 
 ---
 
 ## Scalability Plan (300 → 10,000 repositories)
 
-| Concern | Solution |
+| Concern | 300 repos → 10,000 repos solution |
 |---------|---------|
-| API throughput | Horizontal NestJS pod scaling behind a load balancer (Kubernetes HPA) |
-| Queue throughput | Increase Bull worker concurrency; add more worker replicas scaled to queue depth |
-| GitHub rate limits | Add more tokens to pool; migrate fully to GitHub App auth (higher quota: 15,000 req/hr per installation) |
-| Database reads | MongoDB read replicas; indexes on `owner`, `name`, `updatedAt`, `stars` |
+| Webhook burst volume | Serverless Function auto-scales to thousands of concurrent invocations — no pre-provisioning, no separate microservice needed |
+| Queue throughput | SQS is fully managed; scales automatically; switch to SQS FIFO per org for ordering guarantees |
+| Worker throughput | Lambda workers scale linearly with SQS queue depth — each message triggers one invocation |
+| GitHub rate limits | Migrate to GitHub App auth: 15,000 req/hr per installation vs 5,000 for PATs |
+| Database reads | MongoDB Replica Set + read replicas; NestJS API reads from secondaries; indexes on `owner`, `name`, `updatedAt`, `stars` |
 | Cache capacity | Redis Cluster with consistent hashing; partition by org |
-| Webhook volume | Move webhook handler to a separate microservice with its own scaling |
-| Cold start (new org) | Backfill pipeline: batch-fetch all repos using GraphQL `nodes` query, 100 per request |
+| NestJS API throughput | Kubernetes HPA — scale NestJS pods on CPU and request rate |
+| Cold start (new org) | Backfill pipeline: GraphQL `nodes` query, 100 repos per request, enqueued in batches to SQS |
