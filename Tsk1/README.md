@@ -62,7 +62,7 @@ To ensure fast frontend response times:
 
 See full documentation:
 
-- [Architecture Diagram](./architecture-diagram.md) — Mermaid system diagram, component table, scaling diagram
-- [Design Explanation](./design-doc.md) — 2-page design covering all 8 required areas
-- [API Flow](./api-flow.md) — Sequence diagrams + REST endpoint specs + GraphQL schema
-- [Technology Justification](./tech-justification.md) — Decision table with rejected alternatives
+- [Architecture Diagram](./Idea-DOCS/architecture-diagram.md) — Mermaid system diagram, component table, scaling diagram
+- [Design Explanation](./Idea-DOCS/design-doc.md) — 2-page design covering all 8 required areas
+- [API Flow](./Idea-DOCS/api-flow.md) — Sequence diagrams + REST endpoint specs + GraphQL schema
+- [Technology Justification](./Idea-DOCS/tech-justification.md) — Decision table with rejected alternatives
