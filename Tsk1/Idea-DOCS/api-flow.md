@@ -38,26 +38,26 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant GH as GitHub
-    participant WH as Webhook Controller
-    participant Q as Bull Queue
-    participant W as Worker
+    participant FN as Serverless Function<br/>(Lambda / Vercel)
+    participant SQS as Amazon SQS
+    participant W as Lambda Worker
     participant DB as MongoDB
     participant Cache as Redis Cache
 
-    GH->>WH: POST /webhooks/github (push event)
-    WH->>WH: Verify HMAC-SHA256 signature
-    WH->>Q: Enqueue job { type:"repo-metadata", repo:"c2siorg/Webiu" }
-    WH-->>GH: 200 OK (fast ack, < 10s)
+    GH->>FN: POST /webhooks/github (push event)
+    FN->>FN: Verify HMAC-SHA256 signature
+    FN->>SQS: Enqueue payload { type:"repo-metadata", repo:"c2siorg/Webiu" }
+    FN-->>GH: 200 OK (fast ack, < 1s — no blocking)
 
-    Q->>W: Dequeue job
+    SQS->>W: Trigger Lambda Worker (SQS message)
     W->>GH: GET /repos/c2siorg/Webiu (with ETag)
     alt 200 OK (data changed)
         GH-->>W: Updated repo data
         W->>DB: upsert repository document
         W->>Cache: DEL "repo:c2siorg/Webiu" (invalidate)
     else 304 Not Modified
-        GH-->>W: No body (1 API point used)
-        W->>W: No DB write needed
+        GH-->>W: No body (0 rate-limit points used)
+        W->>W: No DB write needed — skip upsert
     end
 ```
 
@@ -111,7 +111,9 @@ Returns full details for a single repository.
 ```
 
 ### `POST /webhooks/github`
-GitHub webhook receiver. Validates signature and enqueues update jobs.
+Serverless Function endpoint (AWS Lambda / Vercel). Verifies HMAC-SHA256 signature
+and enqueues a typed payload into Amazon SQS. Returns `200 OK` to GitHub in < 1s.
+Invalid signatures are rejected with `401` before the payload reaches the queue.
 
 **Headers**: `X-GitHub-Event`, `X-Hub-Signature-256`
 
