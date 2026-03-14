@@ -2,7 +2,7 @@
 # Scalable GitHub Data Aggregation System
 **Architecture Design & Justification**
 
-![System Architecture Diagram](./Idea-DOCS/architecture_diagram.png)
+![System Architecture Diagram](./architecture_diagram.png)
 
 # Scalable GitHub Data Aggregation System
 **Architecture Design & Justification**
