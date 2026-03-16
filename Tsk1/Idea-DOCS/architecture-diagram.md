@@ -11,11 +11,12 @@ graph TB
 
     subgraph Ingestion["☁️ Ingestion Layer — Serverless"]
         FN[Serverless Function<br/>AWS Lambda / Vercel<br/>Verify HMAC-SHA256 → Enqueue]
-        CRON[Cron Trigger<br/>Scheduled every 6 hrs<br/>Incremental reconciliation]
+        CRON[Amazon EventBridge<br/>Cron: 0 */6 * * ? *<br/>Incremental reconciliation]
     end
 
     subgraph Queue["📨 Message Queue — Managed Serverless"]
-        SQS[Amazon SQS / Upstash Kafka<br/>Dead-Letter Queue + Auto-Retry]
+        SQS[Amazon SQS / Upstash Kafka<br/>Auto-Retry]
+        DLQ[Dead Letter Queue<br/>Permanently failed jobs]
     end
 
     subgraph Processing["⚙️ Processing Layer — Serverless Workers (SQS-triggered)"]
@@ -23,7 +24,6 @@ graph TB
         W2[Lambda Worker<br/>Contributors]
         W3[Lambda Worker<br/>Languages]
         W4[Lambda Worker<br/>Issues / PRs]
-        DLQ[Dead Letter Queue<br/>Permanently failed jobs]
     end
 
     subgraph Storage["🗄️ Storage Layer"]
@@ -54,7 +54,7 @@ graph TB
     W1 & W2 & W3 & W4 <-->|Fetch + ETag sync| GH
     W1 & W2 & W3 & W4 -->|Upsert normalised data| MONGO
     W1 & W2 & W3 & W4 -->|Invalidate cache key| REDIS
-    W1 & W2 & W3 & W4 -->|On max retries| DLQ
+    SQS -->|On max retries| DLQ
 
     %% Serving flow
     UI -->|GET /api/repositories| REST
@@ -79,7 +79,7 @@ graph TB
 | **GitHub Webhooks** | Source | Pushes real-time events (push, PR, issue, star) to the Serverless Function endpoint |
 | **GitHub API (REST v3 + GraphQL v4)** | Source | Queried exclusively by Lambda workers — never by the serving layer |
 | **Serverless Function (Lambda / Vercel)** | Ingestion | Receives webhook POST, verifies HMAC-SHA256 signature, enqueues payload to SQS. Returns `200 OK` to GitHub in < 1s. Scales to zero when idle. |
-| **Cron Trigger** | Ingestion | Fires every 6 hours to enqueue a full incremental sweep — catches any events missed by webhook delivery failures |
+| **Amazon EventBridge** | Ingestion | Serverless cron rule (`0 */6 * * ? *`) that fires every 6 hours to trigger the Serverless Function for an incremental sweep — catches any events missed by webhook delivery failures. |
 | **Amazon SQS / Upstash Kafka** | Queue | Decouples ingestion from processing. Absorbs burst traffic. Native DLQ and exponential-backoff retry. Visibility timeout prevents duplicate processing. |
 | **Lambda Workers (×4)** | Processing | Each SQS message triggers one worker. Fetches only the changed data domain from GitHub (with ETag conditional request). Upserts result into MongoDB. Invalidates the affected Redis cache key. |
 | **Dead Letter Queue** | Processing | Receives messages that have exhausted all retries. Triggers an alert; messages are replayed manually or on the next cron cycle. |

@@ -61,6 +61,28 @@ sequenceDiagram
     end
 ```
 
+## Cron Reconciliation Flow (EventBridge)
+
+```mermaid
+sequenceDiagram
+    participant EB as Amazon EventBridge
+    participant FN as Serverless Function
+    participant SQS as Amazon SQS
+    participant GH as GitHub API
+    participant DB as MongoDB
+
+    EB->>FN: Trigger rule: 0 */6 * * ? * (Every 6h)
+    FN->>DB: GET /syncJobs/last (Get last_synced_at timestamp)
+    DB-->>FN: last_synced_at = "2026-03-10T00:00:00Z"
+    
+    FN->>GH: GET /orgs/c2siorg/repos?sort=updated
+    GH-->>FN: List of repositories
+    
+    FN->>FN: Filter repos where updated_at > last_synced_at
+    FN->>SQS: Enqueue payloads for changed repos only
+    FN->>DB: Update last_synced_at timestamp
+```
+
 ## REST API Endpoints
 
 ### `GET /api/repositories`

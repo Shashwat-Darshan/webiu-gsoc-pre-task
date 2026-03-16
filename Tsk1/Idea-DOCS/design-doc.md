@@ -24,11 +24,8 @@ GitHub sends an HTTP POST to our endpoint whenever a registered event occurs
 polling cost. Each incoming event payload contains enough context to enqueue only the
 affected repository for refresh — no full sweep needed.
 
-**Scheduled Jobs (fallback)**  
-For repositories where webhooks cannot be registered (e.g., external forks, orgs with
-restricted webhook access), a cron job runs a full incremental sweep every 6 hours.
-It uses the `updated_at` field from GitHub's repo list endpoint to identify which
-repos have changed since the last run and enqueues only those — not all 300.
+**Scheduled Reconciliation — Amazon EventBridge (fallback)**  
+An **Amazon EventBridge Scheduler** rule (`cron(0 */6 * * ? *)`) triggers a Lambda function invocation every 6 hours. No always-on server is required — the rule fires the same Lambda used for webhook processing, which then queries GitHub's repo list, filters by `updated_at > last_synced_at`, and enqueues only changed repos into SQS. This is the reconciliation path for any webhooks that failed to deliver.
 
 ### 2. Processing Layer
 
@@ -43,10 +40,10 @@ Parallel worker domains (each independently deployable and restartable):
 
 | Lambda Worker | Data Domain | Trigger Frequency |
 |--------|-------------|-----------|
-| `worker-metadata` | stars, forks, topics, description, homepage | Every webhook event / cron sweep |
-| `worker-contributors` | top contributors, contributor count | Weekly cron |
-| `worker-languages` | language percentages | On push event |
-| `worker-issues` | open/closed issue count, PR stats | Every webhook event / daily cron |
+| `worker-metadata` | stars, forks, topics, description, homepage | Every webhook event / EventBridge 6h sweep |
+| `worker-contributors` | top contributors, contributor count | EventBridge weekly rule |
+| `worker-languages` | language percentages | On push event (webhook) |
+| `worker-issues` | open/closed issue count, PR stats | Every webhook event / EventBridge daily rule |
 
 ### 3. Storage Layer
 
@@ -118,8 +115,8 @@ SQS message visible
 
 Cron reconciliation fallback (every 6 h):
 ```
-Cron Trigger fires
-    └─► Serverless Function calls GitHub list endpoint
+Amazon EventBridge rule fires (cron: 0 */6 * * ? *)
+    └─► Lambda Function (Reconciliation) calls GitHub list endpoint
             └─► GET /orgs/c2siorg/repos?sort=updated&per_page=100
             └─► Filter: repos where updated_at > last_synced_at
             └─► Enqueue only changed repos → SQS
