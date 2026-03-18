@@ -16,7 +16,7 @@ The proposed architecture is a hybrid event-driven, "DB-First Serving" system. I
 
 ## 2. Core Components
 
-* **Ingestion Layer:** Serverless Functions (AWS Lambda / Vercel) receive incoming GitHub Webhook POST requests, verify the HMAC-SHA256 signature, and immediately enqueue the payload. A separate Cron Trigger fires every 6 hours as a reconciliation fallback.
+* **Ingestion Layer:** Serverless Functions (AWS Lambda / Vercel) receive incoming GitHub Webhook POST requests, verify the HMAC-SHA256 signature, and immediately enqueue the payload. A separate **Amazon EventBridge Scheduler** rule (serverless cron — `0 */6 * * ? *`) triggers the same Lambda function every 6 hours as a reconciliation fallback. No always-on server is required.
 * **Message Queue:** Amazon SQS / Upstash Kafka decouples webhook receipt from database writes. Provides native dead-letter queues (DLQ), automatic retries, and backpressure — no always-on broker infrastructure to manage.
 * **Processing Layer:** Serverless Workers (Lambda) are triggered by the queue. Each worker fetches only the changed repository data from the GitHub GraphQL API (with ETag conditional requests) and upserts it into MongoDB.
 * **Storage Layer:** MongoDB (Persistent Analytics Schema) for long-term data storage, and Redis for high-speed endpoint caching.
@@ -25,10 +25,12 @@ The proposed architecture is a hybrid event-driven, "DB-First Serving" system. I
 ---
 
 ## 3. Rate Limit Handling
-Minimizing GitHub API usage is achieved through a three-pronged strategy:
-1. **Webhook Primary Ingestion:** We rely on GitHub pushing updates to us rather than polling their API continuously.
-2. **ETag Caching for Polling:** When serverless workers poll the GraphQL API for historical syncing, they send `If-None-Match: <ETag>` headers. If the repository state hasn't changed, GitHub returns a `304 Not Modified`, which costs 0 points against the rate limit.
-3. **Decoupled API:** User traffic never triggers a GitHub API call. Rate limits are only consumed by internal, controlled serverless workers.
+Minimizing GitHub API usage is achieved through a five-strategy approach:
+1. **Webhook Primary Ingestion** — zero polling for real-time events
+2. **ETag Conditional Requests** — `304 Not Modified` costs 0 rate-limit points
+3. **GraphQL Batching** — up to 100 repo metadata nodes per query vs 1 per REST call
+4. **Incremental Sync** — `updated_at` filtering on every cron sweep (only changed repos)
+5. **Shared Rate-Limit Budget Tracker** — each Lambda worker writes `X-RateLimit-Remaining` to Redis; workers stop dequeuing if the counter drops below threshold (< 200)
 
 ---
 
@@ -81,7 +83,8 @@ To ensure fast frontend response times:
 | **Ingestion Layer** | Serverless Functions (AWS Lambda / Vercel) | Webhook receivers are idle 90% of the time — serverless scales to exactly zero during quiet periods and instantly handles thousands of concurrent push events during org-wide bursts, with no always-on cost |
 | **Message Queue** | Amazon SQS / Upstash Kafka (Serverless) | Decouples webhook receipt from database writes; native DLQ and automatic retries for GitHub API rate-limit failures (HTTP 429); no broker infrastructure to manage |
 | **Processing Workers** | Serverless Workers (Lambda, SQS-triggered) | Each queue message triggers one worker; scales in direct proportion to queue depth; independently restartable per data domain |
-| **API Serving Layer** | NestJS (TypeScript) | Already adopted by the Webiu project; always-on for consistent low-latency serving; native support for GraphQL, caching, and scheduling; scoped strictly to reading from MongoDB/Redis — never calls GitHub |
+| **Cron Trigger** | Amazon EventBridge Scheduler | Serverless cron rule (`0 */6 * * ? *`) that triggers a Lambda invocation every 6 hours for the reconciliation sweep. Zero cost between invocations. No always-on server required. Vercel equivalent: Vercel Cron Jobs. |
+| **API Serving Layer** | NestJS (TypeScript) | Already adopted by the Webiu project; always-on for consistent low-latency serving; native support for GraphQL and caching; scoped strictly to reading from MongoDB/Redis — never calls GitHub |
 | **Persistent Storage** | MongoDB | Its flexible BSON document model easily accommodates the deeply nested and varied JSON payloads returned by GitHub's APIs |
 | **Cache** | Redis | The industry standard for high-performance, in-memory caching; dual-purpose as both response cache and rate-limit budget store |
 

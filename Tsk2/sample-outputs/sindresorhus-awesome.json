@@ -1,0 +1,25 @@
+{
+  "repo": "sindresorhus/awesome",
+  "url": "https://github.com/sindresorhus/awesome",
+  "stars": 445370,
+  "forks": 33527,
+  "open_issues": 80,
+  "primary_language": null,
+  "languages": {},
+  "contributors_count": 1,
+  "commits_last_90d": 7,
+  "closed_issues_last_90d": 90,
+  "releases_last_year": 0,
+  "days_since_last_commit": 5,
+  "file_count": 23,
+  "folder_depth": 3,
+  "has_dependency_file": false,
+  "language_count": 0,
+  "activity_score": 35,
+  "complexity_score": 7,
+  "difficulty": "Intermediate",
+  "notes": [
+    "Limited data available for detailed analysis"
+  ],
+  "data_quality": "complete"
+}

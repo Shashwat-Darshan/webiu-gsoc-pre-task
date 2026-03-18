@@ -1,0 +1,34 @@
+{
+  "repo": "nestjs/nest",
+  "url": "https://github.com/nestjs/nest",
+  "stars": 74914,
+  "forks": 8255,
+  "open_issues": 38,
+  "primary_language": "TypeScript",
+  "languages": {
+    "TypeScript": 99.9,
+    "JavaScript": 0.1,
+    "Shell": 0.0
+  },
+  "contributors_count": 1,
+  "commits_last_90d": 100,
+  "closed_issues_last_90d": 100,
+  "releases_last_year": 30,
+  "days_since_last_commit": 0,
+  "file_count": 2108,
+  "folder_depth": 7,
+  "has_dependency_file": true,
+  "language_count": 3,
+  "activity_score": 68,
+  "complexity_score": 67,
+  "difficulty": "Intermediate",
+  "notes": [
+    "Very high commit frequency (100 commits in 90 days)",
+    "Frequent releases (30 in the past year)",
+    "Multi-language codebase (3 languages)",
+    "Deep folder structure (max depth 7)",
+    "Large codebase (2,108 files)",
+    "Has dependency manifest (real project with managed dependencies)"
+  ],
+  "data_quality": "complete"
+}

@@ -2,24 +2,24 @@
 
 ## What this tool does
 
-Accepts a list of GitHub repository URLs, fetches data from the GitHub API, and
+Accepts a list of GitHub repository URLs, fetches live data from the GitHub API, and
 generates a structured intelligence report for each repository containing:
 
-- **Activity Score** (0–100) — how actively maintained the repo is
-- **Complexity Score** (0–100) — how complex the codebase is
-- **Learning Difficulty** — Beginner / Intermediate / Advanced classification
-- Human-readable notes explaining the scores
+- **Activity Score** (0–100) — how actively maintained the repo is right now
+- **Complexity Score** (0–100) — how large and multi-layered the codebase is
+- **Learning Difficulty** — `Beginner` / `Intermediate` / `Advanced` classification
+- Human-readable notes explaining every score
 
 ---
 
 ## Deliverables checklist
 
-- [x] [Scoring Formulas + Assumptions](./SCORING.md)
-- [ ] [Backend source code](./backend/)
-- [ ] [Frontend source code](./frontend/)
-- [ ] [Sample outputs](./sample-outputs/) — 5+ repos analyzed
-- [ ] Live URL: _filled after deployment_
-- [ ] Setup instructions (this file, bottom section)
+- [x] [Scoring formulas + assumptions](./SCORING.md)
+- [x] [Backend source code](./backend/)
+- [x] [Sample outputs](./sample-outputs/) — 5 repos analyzed
+- [x] [Deployment guide](./DEPLOYMENT.md)
+- [x] [UI contract](./UI_CONTRACT.md) — types, API spec, component map
+- [ ] Live URL — _filled after deployment_
 
 ---
 
@@ -27,17 +27,15 @@ generates a structured intelligence report for each repository containing:
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| **Backend** | **FastAPI (Python)** | Ideal for data analysis tools; auto-generates OpenAPI docs at `/docs`; `httpx` async client for concurrent GitHub fetches; deploys in seconds on Railway/Render |
-| **Frontend** | **Next.js 14 (React)** | External AI tools (Cursor, v0.dev, Bolt) generate React 10× faster than Angular; server components reduce client JS; Vercel deployment is free + instant |
-| **Cache** | In-process `cachetools.TTLCache` | No extra infra needed for a standalone tool; 1-hour TTL per repo |
-| **Deployment (backend)** | Railway | Git-push deploy; free tier; environment variables UI; auto HTTPS |
-| **Deployment (frontend)** | Vercel | Git-push deploy; free tier; Next.js native |
+| **Backend** | **FastAPI (Python)** | Ideal for data-analysis tools; auto-generates Swagger UI at `/docs`; `httpx` async client for concurrent GitHub fetches; deploys in one push to Railway/Render |
+| **Cache** | `cachetools.TTLCache` (in-process) | No extra infrastructure needed for a standalone tool; 1-hour TTL per repo endpoint |
+| **Deployment** | Railway (backend) | Git-push deploy; free tier; environment variable UI; auto HTTPS |
 
-> **Why FastAPI instead of NestJS for this task?**  
+> **Why FastAPI instead of NestJS for this task?**
 > Task 2 is a standalone analysis tool, not an extension of Webiu. FastAPI's automatic
-> `/docs` UI lets mentors interact with the API without any setup. Python's data
-> ecosystem (statistics, weighting, normalization) is more ergonomic than TypeScript
-> for formula-heavy work. NestJS is the right choice for the main Webiu backend (Task 1).
+> `/docs` UI lets mentors interact with the API without any frontend setup. Python's
+> data ecosystem is more ergonomic than TypeScript for formula-heavy scoring work.
+> NestJS is the right choice for the main Webiu backend (Task 1).
 
 ---
 
@@ -45,6 +43,7 @@ generates a structured intelligence report for each repository containing:
 
 ### Base URL
 ```
+http://localhost:8000          (local)
 https://gh-analyzer.up.railway.app   (after deployment)
 ```
 
@@ -91,10 +90,9 @@ Analyze one or more GitHub repositories.
       "complexity_score": 81,
       "difficulty": "Advanced",
       "notes": [
-        "Very high commit frequency",
-        "Large contributor base (450)",
-        "Multiple language support",
-        "Deep folder structure"
+        "Very high commit frequency (312 commits in 90 days)",
+        "Large contributor base (450 contributors)",
+        "Deep folder structure (max depth 7)"
       ],
       "data_quality": "complete"
     }
@@ -102,7 +100,7 @@ Analyze one or more GitHub repositories.
 }
 ```
 
-**Error response** (missing/private repo):
+**Error response** (missing / private repo):
 ```json
 {
   "repo": "owner/private-repo",
@@ -115,13 +113,12 @@ Analyze one or more GitHub repositories.
 ```
 
 #### `GET /health`
-Returns service status.
 ```json
 { "status": "ok", "version": "1.0.0" }
 ```
 
 #### `GET /docs`
-Auto-generated Swagger UI (FastAPI built-in).
+Auto-generated Swagger UI — interact with the API directly in the browser (FastAPI built-in).
 
 ---
 
@@ -129,32 +126,65 @@ Auto-generated Swagger UI (FastAPI built-in).
 
 ### Prerequisites
 - Python 3.11+
-- Node.js 20+ (for frontend)
-- GitHub Personal Access Token (optional but recommended — raises limit: 60 → 5,000 req/hr)
+- GitHub Personal Access Token (optional but recommended — raises rate limit from 60 → 5,000 req/hr)
 
-### Backend
+### Run locally
+
 ```bash
-cd task-2-analyzer/backend
+cd backend
 python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env       # add GITHUB_TOKEN
+cp .env.example .env            # add GITHUB_TOKEN=your_pat_here
 uvicorn main:app --reload --port 8000
 ```
-API available at `http://localhost:8000`  
-Swagger UI at `http://localhost:8000/docs`
 
-### Frontend
-```bash
-cd task-2-analyzer/frontend
-npm install
-cp .env.example .env.local  # set NEXT_PUBLIC_API_URL=http://localhost:8000
-npm run dev
-```
-UI available at `http://localhost:3000`
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
 
-### With Docker Compose
+### Run with Docker
+
 ```bash
-cd task-2-analyzer
+# from Tsk2/
 docker-compose up --build
 ```
+
+- API: `http://localhost:8000`
+
+---
+
+## Project Structure
+
+```
+Tsk2/
+├── backend/
+│   ├── main.py            # FastAPI app — /analyze and /health endpoints
+│   ├── github_client.py   # Async GitHub API fetcher with TTL cache + rate-limit guard
+│   ├── scorer.py          # Activity score, complexity score, difficulty classifier, notes
+│   ├── models.py          # Pydantic request / response schemas
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── .env.example
+├── sample-outputs/        # JSON reports for 5 analyzed repositories
+├── SCORING.md             # Full formula documentation
+├── UI_CONTRACT.md         # Frontend types, API contract, component map
+├── DEPLOYMENT.md          # Railway deployment guide
+└── docker-compose.yml
+```
+
+---
+
+## Quick test (curl)
+
+```bash
+curl -X POST http://localhost:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repos": [
+      "https://github.com/c2siorg/Webiu",
+      "https://github.com/nestjs/nest"
+    ]
+  }'
+```
+
+See [sample-outputs/](./sample-outputs/) for pre-generated reports on five repositories.

@@ -1,0 +1,37 @@
+{
+  "repo": "facebook/react",
+  "url": "https://github.com/facebook/react",
+  "stars": 243910,
+  "forks": 50779,
+  "open_issues": 1174,
+  "primary_language": "JavaScript",
+  "languages": {
+    "JavaScript": 68.1,
+    "TypeScript": 29.0,
+    "HTML": 1.5,
+    "CSS": 1.1,
+    "CoffeeScript": 0.2,
+    "Shell": 0.1
+  },
+  "contributors_count": 1,
+  "commits_last_90d": 100,
+  "closed_issues_last_90d": 100,
+  "releases_last_year": 15,
+  "days_since_last_commit": 0,
+  "file_count": 6835,
+  "folder_depth": 11,
+  "has_dependency_file": true,
+  "language_count": 6,
+  "activity_score": 64,
+  "complexity_score": 100,
+  "difficulty": "Advanced",
+  "notes": [
+    "Very high commit frequency (100 commits in 90 days)",
+    "Frequent releases (15 in the past year)",
+    "Multi-language codebase (6 languages)",
+    "Deep folder structure (max depth 11)",
+    "Large codebase (6,835 files)",
+    "Has dependency manifest (real project with managed dependencies)"
+  ],
+  "data_quality": "complete"
+}
