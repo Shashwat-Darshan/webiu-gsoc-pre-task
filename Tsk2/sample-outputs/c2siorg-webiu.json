@@ -1,34 +1,36 @@
 {
   "repo": "c2siorg/Webiu",
   "url": "https://github.com/c2siorg/Webiu",
-  "stars": 32,
-  "forks": 94,
-  "open_issues": 123,
+  "stars": 37,
+  "forks": 108,
+  "open_issues": 172,
   "primary_language": "TypeScript",
   "languages": {
-    "TypeScript": 66.5,
-    "SCSS": 19.6,
-    "HTML": 13.0,
-    "JavaScript": 0.7,
-    "Dockerfile": 0.1
+    "TypeScript": 66.54,
+    "SCSS": 19.63,
+    "HTML": 13.04,
+    "JavaScript": 0.74,
+    "Dockerfile": 0.05
   },
   "contributors_count": 1,
-  "commits_last_90d": 100,
-  "closed_issues_last_90d": 100,
+  "commits_last_90d": 0,
+  "closed_issues_last_90d": 0,
+  "good_first_issues_count": 0,
   "releases_last_year": 0,
-  "days_since_last_commit": 9,
-  "file_count": 225,
-  "folder_depth": 6,
-  "has_dependency_file": true,
+  "days_since_last_commit": 20,
+  "file_count": 0,
+  "folder_depth": 0,
+  "has_dependency_file": false,
   "language_count": 5,
-  "activity_score": 56,
-  "complexity_score": 48,
-  "difficulty": "Intermediate",
+  "activity_score": 0,
+  "complexity_score": 20,
+  "difficulty": "Beginner",
   "notes": [
-    "Very high commit frequency (100 commits in 90 days)",
-    "Multi-language codebase (5 languages)",
-    "Deep folder structure (max depth 6)",
-    "Has dependency manifest (real project with managed dependencies)"
+    "No commits detected in the last 90 days",
+    "Small contributor base; onboarding may depend on few maintainers",
+    "No standard dependency manifest detected",
+    "Empty or uninitialized repository",
+    "Some GitHub endpoints were unavailable; partial metrics were used"
   ],
-  "data_quality": "complete"
+  "data_quality": "partial"
 }

@@ -2,57 +2,43 @@
 
 ## Architecture
 
-```
-┌─────────────────────────────────────┐
-│  FastAPI Backend (Railway)           │
-│  - POST /analyze                     │
-│  - GET  /health                      │
-│  - GET  /docs  ← Swagger UI          │
-└─────────────────────────────────────┘
-```
+This backend supports two runtime modes:
 
-The backend exposes a full **Swagger UI at `/docs`** — no separate frontend is
-required to interact with the tool. Mentors and reviewers can submit repositories
-and view scored results directly from the browser.
+1. Local development as an Express server (`src/server.ts`)
+2. Serverless deployment via function entrypoints:
+   - AWS Lambda handler at `src/serverless/lambda.ts`
+   - Vercel function entrypoint at `api/index.ts`
 
----
+Endpoints are identical in both modes:
 
-## Backend → Railway
-
-1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub**.
-2. Select this repository.
-3. Set **Root Directory** to `Tsk2/backend`.
-4. Add environment variable: `GITHUB_TOKEN = <your PAT>`.
-5. Railway detects the `Dockerfile` and builds automatically.
-6. Copy the generated URL (e.g., `https://gh-analyzer.up.railway.app`).
-7. Paste the live URL into `Tsk2/README.md` under **Live URL**.
+- `POST /analyze`
+- `GET /health`
 
 ---
 
 ## Local Development
 
 ### Prerequisites
-- Python 3.11+
-- GitHub Personal Access Token (optional but recommended — raises limit: 60 → 5,000 req/hr)
 
-### Run the backend
+- Node.js 18+
+- npm
+- GitHub Personal Access Token (optional but recommended — raises rate limit: 60 → 5,000 req/hr)
+
+### Run locally
 
 ```bash
 cd Tsk2/backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env            # add your GITHUB_TOKEN
-uvicorn main:app --reload --port 8000
+npm install
+cp .env.example .env
+npm run dev
 ```
 
 | Endpoint | URL |
 |----------|-----|
-| Swagger UI | http://localhost:8000/docs |
 | Health check | http://localhost:8000/health |
 | Analyze API | http://localhost:8000/analyze |
 
-### Quick test with curl
+### Quick test
 
 ```bash
 curl -X POST http://localhost:8000/analyze \
@@ -62,8 +48,32 @@ curl -X POST http://localhost:8000/analyze \
       "https://github.com/nestjs/nest",
       "https://github.com/c2siorg/Webiu"
     ]
-  }' | python -m json.tool
+  }'
 ```
+
+---
+
+## Serverless Deployment (Vercel)
+
+1. Import this repo in Vercel.
+2. Set project root to `Tsk2/backend`.
+3. Add environment variable `GITHUB_TOKEN` (recommended).
+4. Deploy. Vercel will use `api/index.ts` as a serverless function.
+
+---
+
+## Serverless Deployment (AWS Lambda)
+
+1. Build the project:
+
+```bash
+cd Tsk2/backend
+npm install
+npm run build
+```
+
+2. Use `dist/serverless/lambda.js` as your Lambda handler bundle entrypoint.
+3. Configure API Gateway routes for `POST /analyze` and `GET /health`.
 
 ---
 
@@ -78,26 +88,12 @@ Backend available at **http://localhost:8000**
 
 ---
 
-## CORS
-
-The FastAPI backend has `allow_origins=["*"]` for development.
-Before finalising, replace `"*"` with your exact deployed domain:
-
-```python
-# backend/main.py
-allow_origins=["https://your-project.vercel.app"],
-```
-
----
-
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITHUB_TOKEN` | Recommended | GitHub PAT — raises rate limit from 60 to 5,000 req/hr |
-
-Copy `.env.example` to `.env` and fill in the value:
-
-```
-GITHUB_TOKEN=ghp_your_token_here
-```
+| `PORT` | Optional | Local HTTP port (default: `8000`) |
+| `GITHUB_TOKEN` | Recommended | GitHub PAT to increase API budget |
+| `GITHUB_REQUEST_TIMEOUT_MS` | Optional | GitHub request timeout in milliseconds |
+| `GITHUB_CONCURRENCY_LIMIT` | Optional | Max parallel GitHub API requests |
+| `GITHUB_RATE_LIMIT_STOP_THRESHOLD` | Optional | Stop threshold for remaining rate-limit budget |
