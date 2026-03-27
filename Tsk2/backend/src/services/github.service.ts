@@ -1,5 +1,4 @@
-import { Octokit } from "@octokit/rest";
-import pLimit from "p-limit";
+import type { Octokit } from "@octokit/rest";
 import {
   DataQuality,
   GitHubRepoRef,
@@ -30,8 +29,57 @@ interface TreeMetrics {
   usedFallback: boolean;
 }
 
+type LimitFunction = <T>(task: () => Promise<T>) => Promise<T>;
+type OctokitConstructor = typeof import("@octokit/rest").Octokit;
+
 function estimateFileCountFromSizeKb(sizeKb: number): number {
   return Math.max(1, Math.floor(sizeKb / 4.5));
+}
+
+function createLimiter(concurrency: number): LimitFunction {
+  const maxConcurrency = Math.max(1, concurrency);
+  let activeCount = 0;
+  const queue: Array<() => void> = [];
+
+  const runNext = (): void => {
+    if (activeCount >= maxConcurrency) {
+      return;
+    }
+
+    const next = queue.shift();
+
+    if (!next) {
+      return;
+    }
+
+    activeCount += 1;
+    next();
+  };
+
+  return async function limit<T>(task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const execute = (): void => {
+        void task()
+          .then(resolve, reject)
+          .finally(() => {
+            activeCount -= 1;
+            runNext();
+          });
+      };
+
+      queue.push(execute);
+      runNext();
+    });
+  };
+}
+
+async function loadOctokitConstructor(): Promise<OctokitConstructor> {
+  const dynamicImport = new Function(
+    'return import("@octokit/rest")'
+  ) as () => Promise<{ Octokit: OctokitConstructor }>;
+  const module = await dynamicImport();
+
+  return module.Octokit;
 }
 
 const DEPENDENCY_FILES = new Set([
@@ -67,29 +115,30 @@ const TREE_IGNORE_PATTERNS = [
 ];
 
 export class GitHubService {
-  private readonly requestLimiter;
-  private readonly searchRequestLimiter;
+  private readonly requestLimiter: LimitFunction;
+  private readonly searchRequestLimiter: LimitFunction;
   private readonly options: GitHubServiceOptions;
   private readonly state: ServiceState = { rateLimitStop: false };
 
   constructor(options: GitHubServiceOptions) {
     this.options = options;
-    this.requestLimiter = pLimit(Math.max(1, options.concurrencyLimit));
-    this.searchRequestLimiter = pLimit(1);
+    this.requestLimiter = createLimiter(options.concurrencyLimit);
+    this.searchRequestLimiter = createLimiter(1);
   }
 
   async fetchMany(repoUrls: string[], token?: string): Promise<GitHubRepositoryResult[]> {
     this.state.rateLimitStop = false;
 
-    const octokit = this.createClient(token);
+    const octokit = await this.createClient(token);
 
     const jobs = repoUrls.map((repoUrl) => this.fetchOne(octokit, repoUrl));
 
     return Promise.all(jobs);
   }
 
-  private createClient(token?: string): Octokit {
+  private async createClient(token?: string): Promise<Octokit> {
     const authToken = token ?? this.options.defaultToken;
+    const Octokit = await loadOctokitConstructor();
 
     return new Octokit({
       auth: authToken,
