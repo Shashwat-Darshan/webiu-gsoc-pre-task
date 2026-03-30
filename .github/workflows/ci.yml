@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: |
+            Tsk2/frontend/package-lock.json
+            Tsk2/backend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: Tsk2/frontend
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: Tsk2/frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: Tsk2/frontend
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: Tsk2/backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: Tsk2/backend

@@ -12,7 +12,8 @@ export function createApp(): express.Express {
         "http://localhost:5173",
         "http://localhost:5174",
         "https://frontend-six-inky-50.vercel.app",
-        "https://frontend-seven-inky-50.vercel.app"
+        "https://frontend-seven-inky-50.vercel.app",
+        "https://gsoc-poc-webiu-analyzer.vercel.app"
       ],
       methods: ["GET", "POST", "OPTIONS"],
       credentials: true
