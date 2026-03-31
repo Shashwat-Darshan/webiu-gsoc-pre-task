@@ -17,6 +17,15 @@
 
 ---
 
+## Project quick links
+
+- Main README: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/README.md
+- Task 1 README: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/Tsk1/README.md
+- Task 2 README: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/Tsk2/README.md
+- CI workflow: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/.github/workflows/ci.yml
+- Frontend deployment: https://gsoc-poc-webiu-analyzer.vercel.app
+- Backend deployment: https://backend-seven-orcin-65.vercel.app
+
 ## Task 1 — Scalable GitHub Data Aggregation System
 
 Design exercise: propose a full architecture for aggregating data from 300+ GitHub repositories, serving it to a website, minimising API usage, and scaling to 10,000 repos.
