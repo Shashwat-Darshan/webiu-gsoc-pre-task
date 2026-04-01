@@ -8,6 +8,8 @@ const githubService = new GitHubService({
   defaultToken: env.githubToken,
   requestTimeoutMs: env.githubRequestTimeoutMs,
   treeTimeoutMs: env.githubTreeTimeoutMs,
+  cacheTtlMs: env.githubCacheTtlMs,
+  cacheMaxEntries: env.githubCacheMaxEntries,
   concurrencyLimit: env.githubConcurrencyLimit,
   rateLimitStopThreshold: env.githubRateLimitStopThreshold
 });
@@ -69,7 +71,7 @@ export async function analyzeRepositories(req: Request, res: Response): Promise<
       complexity_score: null,
       confidence_score: null,
       onboarding_health_score: null,
-      model_version: "model-b-v1",
+      model_version: "model-b-v2",
       explainability: {
         rationale: "Unable to compute explanation due to upstream fetch failure",
         top_positive_drivers: [],

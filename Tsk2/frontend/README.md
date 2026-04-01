@@ -26,5 +26,20 @@ npm run lint
 ### API endpoint
 - Configure the backend base URL with `VITE_API_BASE_URL` (defaults to `http://localhost:8000`).
 
+Example `.env`:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+### Deployment & CI/CD
+- **Platform:** We use Vercel to host the production frontend.
+- **CI/CD:** GitHub Actions runs project quality checks; production deployment is handled by Vercel integration.
+- **Networking:** The production frontend is strictly configured to call the deployed Vercel backend URL.
+
 ### GitHub token (recommended)
 - Supplying a GitHub PAT in the UI unlocks higher rate limits for analysis (60 → 5000 requests/hour). The token is optional and sent only when provided.
+
+### Related docs
+- Overall Task 2 guide: `../README.md`
+- Final scoring spec (production + roadmap): `../docs/SCORING.md`

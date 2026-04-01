@@ -22,7 +22,7 @@ export function RepoDetails({ analysis, onClose }: RepoDetailsProps) {
     );
   }
 
-  const languages = Object.entries(analysis.languages);
+  const languages = Object.entries(analysis.languages).sort(([, left], [, right]) => right - left);
   const quickSummary = getOneGlanceSummary(analysis);
 
   return (
@@ -52,7 +52,9 @@ export function RepoDetails({ analysis, onClose }: RepoDetailsProps) {
         <p>{quickSummary}</p>
       </div>
 
-      <div className="stat-grid">
+      <div className="section-block">
+        <h4>Repository facts</h4>
+        <div className="stat-grid">
         <div>Stars <strong>{formatNumber(analysis.stars)}</strong></div>
         <div>Forks <strong>{formatNumber(analysis.forks)}</strong></div>
         <div>Open issues <strong>{formatNumber(analysis.open_issues)}</strong></div>
@@ -66,6 +68,7 @@ export function RepoDetails({ analysis, onClose }: RepoDetailsProps) {
         <div>Model version <strong>{analysis.model_version}</strong></div>
         <div>Releases 1y <strong>{formatNumber(analysis.releases_last_year)}</strong></div>
         <div>File count <strong>{formatNumber(analysis.file_count)}</strong></div>
+        </div>
       </div>
 
       <div className="notes-block">

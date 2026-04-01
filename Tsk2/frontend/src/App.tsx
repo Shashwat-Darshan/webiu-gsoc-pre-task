@@ -4,6 +4,8 @@ import type { RepoAnalysis } from "./types/analyzer";
 import { RepoCard } from "./components/RepoCard";
 import { RepoInputForm } from "./components/RepoInputForm";
 import { RepoDetails } from "./components/RepoDetails";
+import { MetricsHelp } from "./components/MetricsHelp";
+import { SkeletonCard } from "./components/SkeletonCard";
 
 const REPO_PATTERN = /^https?:\/\/github\.com\/[^\s/]+\/[^\s/]+\/?$/i;
 
@@ -74,7 +76,7 @@ function buildErrorResult(repo: string, message: string): RepoAnalysis {
     complexity_score: null,
     confidence_score: null,
     onboarding_health_score: null,
-    model_version: "model-b-v1",
+    model_version: "model-b-v2",
     explainability: {
       rationale: message,
       top_positive_drivers: [],
@@ -126,6 +128,10 @@ function App() {
 
       if (sortBy === "complexity") {
         return (b.complexity_score ?? -1) - (a.complexity_score ?? -1);
+      }
+
+      if (sortBy === "confidence") {
+        return (b.confidence_score ?? -1) - (a.confidence_score ?? -1);
       }
 
       return b.stars - a.stars;
@@ -218,8 +224,8 @@ function App() {
         <p className="kicker">GSoC Proof Dashboard</p>
         <h1>GitHub Repository Intelligence Analyzer</h1>
         <p>
-          End-to-end UI for repository activity and complexity intelligence, built for proposal-grade
-          demonstration.
+          Compare newcomer difficulty across repositories with a cleaner, batch-first explorer built for quick
+          scanning and deeper explainability.
         </p>
       </header>
 
@@ -243,9 +249,12 @@ function App() {
         <div className="results-head">
           <div>
             <h2>Analysis results</h2>
-            <p>
-              {summary.total} analyzed | {summary.success} success | {summary.failed} failed
-            </p>
+            <div className="result-kpis" role="status" aria-live="polite">
+              <span className="result-kpi">Total {summary.total}</span>
+              <span className="result-kpi success">Success {summary.success}</span>
+              <span className="result-kpi warn">Failed {summary.failed}</span>
+              <span className="result-kpi">Visible {visibleResults.length}</span>
+            </div>
             {analyzedAt ? <p className="timestamp">Generated at {new Date(analyzedAt).toUTCString()}</p> : null}
           </div>
 
@@ -258,7 +267,7 @@ function App() {
               Filter
               <select value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value)}>
                 <option value="All">All</option>
-                <option value="Beginner">Simple and Beginner-Friendly</option>
+                <option value="Beginner">Beginner-Friendly</option>
                 <option value="Intermediate">Moderate Complexity and Guidance Needed</option>
                 <option value="Advanced">Complex and Newcomer-Challenging</option>
                 <option value="Unknown">Insufficient Data</option>
@@ -270,15 +279,25 @@ function App() {
               <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
                 <option value="activity">Activity</option>
                 <option value="complexity">Complexity</option>
+                <option value="confidence">Advanced confidence</option>
                 <option value="stars">Stars</option>
               </select>
             </label>
           </div>
         </div>
 
+        <details className="metrics-help-toggle">
+          <summary>Show scoring math and model notes</summary>
+          <MetricsHelp />
+        </details>
+
         <div className="content-grid">
           <div className="cards-grid">
-            {visibleResults.length === 0 ? (
+            {loading ? (
+              Array.from({ length: Math.max(2, Math.min(6, validRepos.length || 3)) }).map((_, index) => (
+                <SkeletonCard key={`skeleton-${index}`} />
+              ))
+            ) : visibleResults.length === 0 ? (
               <div className="empty-results">
                 <h3>No data yet</h3>
                 <p>Run an analysis to populate project insights.</p>

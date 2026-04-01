@@ -8,10 +8,17 @@ const STYLE_BY_DIFFICULTY: Record<Difficulty, string> = {
 };
 
 const LABEL_BY_DIFFICULTY: Record<Difficulty, string> = {
-  Beginner: "Simple and Beginner-Friendly",
+  Beginner: "Beginner-Friendly",
   Intermediate: "Moderate Complexity and Guidance Needed",
   Advanced: "Complex and Newcomer-Challenging",
   Unknown: "Insufficient Data"
+};
+
+const ICON_BY_DIFFICULTY: Record<Difficulty, string> = {
+  Beginner: "BF",
+  Intermediate: "MD",
+  Advanced: "AD",
+  Unknown: "UN"
 };
 
 interface DifficultyBadgeProps {
@@ -19,5 +26,10 @@ interface DifficultyBadgeProps {
 }
 
 export function DifficultyBadge({ difficulty }: DifficultyBadgeProps) {
-  return <span className={STYLE_BY_DIFFICULTY[difficulty]}>{LABEL_BY_DIFFICULTY[difficulty]}</span>;
+  return (
+    <span className={STYLE_BY_DIFFICULTY[difficulty]} aria-label={`Difficulty ${LABEL_BY_DIFFICULTY[difficulty]}`}>
+      <span className="badge-icon" aria-hidden="true">{ICON_BY_DIFFICULTY[difficulty]}</span>
+      <span>{LABEL_BY_DIFFICULTY[difficulty]}</span>
+    </span>
+  );
 }

@@ -43,6 +43,7 @@ export function RepoInputForm({
       <input
         className="text-input"
         type="password"
+        aria-label="GitHub token"
         value={token}
         onChange={(event) => onTokenChange(event.target.value)}
         placeholder="ghp_..."
@@ -52,6 +53,7 @@ export function RepoInputForm({
       <label className="field-label">Repository URLs (comma or newline separated)</label>
       <textarea
         className={`batch-textarea ${hasValidationError ? "input-error" : ""}`}
+        aria-label="Repository URLs"
         value={batchInput}
         onChange={(event) => onBatchInputChange(event.target.value)}
         onKeyDown={(event) => {
@@ -84,16 +86,19 @@ export function RepoInputForm({
 
       <div className="validation-row">
         <p>{validCount} valid / {totalCount} total entries</p>
-        {hasValidationError ? <p className="validation-error">Malformed URL detected</p> : <p className="validation-ok">All URLs look valid</p>}
+        {hasValidationError ? <p className="validation-error">Malformed URLs detected</p> : <p className="validation-ok">All URLs look valid</p>}
       </div>
 
       {hasValidationError ? (
-        <div className="invalid-list">
-          {invalidRepos.slice(0, 4).map((repo) => (
-            <p key={repo}>- {repo}</p>
-          ))}
-          {invalidRepos.length > 4 ? <p>... and {invalidRepos.length - 4} more</p> : null}
-        </div>
+        <details className="invalid-list">
+          <summary>View invalid entries ({invalidRepos.length})</summary>
+          <div className="invalid-list-body">
+            {invalidRepos.slice(0, 6).map((repo) => (
+              <p key={repo}>- {repo}</p>
+            ))}
+            {invalidRepos.length > 6 ? <p>... and {invalidRepos.length - 6} more</p> : null}
+          </div>
+        </details>
       ) : null}
 
       {loading ? (
@@ -111,7 +116,7 @@ export function RepoInputForm({
 
       <div className="form-footer">
         <p>Batch mode enabled for fast proposal demos</p>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="form-footer-actions">
           <button
             className="ghost-btn danger"
             onClick={onClear}

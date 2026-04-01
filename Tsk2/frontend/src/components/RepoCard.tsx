@@ -13,34 +13,42 @@ function formatNumber(value: number): string {
 }
 
 export function RepoCard({ analysis, onSelect }: RepoCardProps) {
-  const languagePills = Object.entries(analysis.languages).slice(0, 4);
+  const languagePills = Object.entries(analysis.languages)
+    .sort(([, left], [, right]) => right - left)
+    .slice(0, 3);
   const quickSummary = getOneGlanceSummary(analysis);
+  const confidence = analysis.confidence_score !== null ? `${(analysis.confidence_score * 100).toFixed(1)}%` : "N/A";
 
   return (
     <article className="repo-card">
       <header className="repo-card-head">
-        <div>
+        <div className="repo-card-title-wrap">
           <h3>{analysis.repo}</h3>
           <p>{analysis.primary_language ?? "Unknown language"}</p>
         </div>
         <div className="card-badges">
-          {analysis.error ? <span className="warn-chip">Warning</span> : null}
+          {analysis.error ? <span className="warn-chip">Fetch issue</span> : null}
           <DifficultyBadge difficulty={analysis.difficulty} />
         </div>
       </header>
 
-      <div className="repo-mini-stats">
+      <div className="repo-mini-stats" aria-label="Repository quick stats">
         <span>Stars {formatNumber(analysis.stars)}</span>
         <span>Forks {formatNumber(analysis.forks)}</span>
+        <span>Contributors {formatNumber(analysis.contributors_count)}</span>
       </div>
 
+      <p className="quick-summary">{quickSummary}</p>
+
       <div className="metric-breakdown">
-        <p className="quick-summary">{quickSummary}</p>
         <p>
-          Activity Score: <strong>{analysis.activity_score ?? "N/A"}/100</strong> | {formatNumber(analysis.commits_last_90d)} commits | {formatNumber(analysis.contributors_count)} contributors
+          Activity: <strong>{analysis.activity_score ?? "N/A"}/100</strong> | Commits 90d {formatNumber(analysis.commits_last_90d)}
         </p>
         <p>
-          Complexity Score: <strong>{analysis.complexity_score ?? "N/A"}/100</strong> | {formatNumber(analysis.file_count)} files | {analysis.language_count} languages
+          Complexity: <strong>{analysis.complexity_score ?? "N/A"}/100</strong> | Files {formatNumber(analysis.file_count)}
+        </p>
+        <p>
+          Advanced confidence: <strong>{confidence}</strong> | Data quality: <strong>{analysis.data_quality}</strong>
         </p>
       </div>
 

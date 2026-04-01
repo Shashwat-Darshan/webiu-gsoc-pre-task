@@ -11,7 +11,7 @@
 | Task | Title | Status | Deliverables |
 |------|-------|--------|--------------|
 | [Task 1](./Tsk1/README.md) | Scalable GitHub Data Aggregation System | ✅ Complete | Architecture diagram · Design doc · API flow · Tech justification |
-| [Task 2](./Tsk2/README.md) | GitHub Repository Intelligence Analyzer | 🚧 In Progress | Source code · Sample reports · Scoring doc · Deployment guide |
+| [Task 2](./Tsk2/README.md) | GitHub Repository Intelligence Analyzer | ✅ Deployed & Working | Source code · sample outputs · scoring docs (V1 + V2) · usage guide |
 
 > The system architecture from Task 1 is the production-ready north star for the GSoC idea outlined in [`GSOC_IDEA.md`](./GSOC_IDEA.md).
 
@@ -23,7 +23,7 @@
 - Task 1 README: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/Tsk1/README.md
 - Task 2 README: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/Tsk2/README.md
 - CI workflow: https://github.com/Shashwat-Darshan/webiu-gsoc-pre-task/blob/master/.github/workflows/ci.yml
-- Frontend deployment: https://gsoc-poc-webiu-analyzer.vercel.app
+- Frontend deployment: https://frontend-six-inky-50.vercel.app
 - Backend deployment: https://backend-seven-orcin-65.vercel.app
 
 ## Task 1 — Scalable GitHub Data Aggregation System
@@ -44,18 +44,48 @@ Design exercise: propose a full architecture for aggregating data from 300+ GitH
 
 ## Task 2 — GitHub Repository Intelligence Analyzer
 
-Live tool that scores and ranks GitHub repositories using a weighted multi-factor algorithm.
+**Status:** ✅ Deployed and working
 
-| Document | Description |
-|----------|-------------|
-| [README](./Tsk2/README.md) | Setup, usage, and feature overview |
-| [Scoring](./Tsk2/SCORING.md) | Scoring algorithm, weights, and factor breakdown |
-| [UI Contract](./Tsk2/UI_CONTRACT.md) | API response schema for frontend consumption |
-| [Deployment](./Tsk2/DEPLOYMENT.md) | Docker and environment setup guide |
-| [Sample Outputs](./Tsk2/sample-outputs/README.md) | Example scored repository reports |
-| [Backend Source](./Tsk2/backend/) | NestJS · TypeScript · Dockerfile · docker-compose |
+A live web tool that analyzes GitHub repositories and tells you how hard it would be for a newcomer to contribute. It scores activity, complexity, and community friendliness—then gives a `Beginner` / `Intermediate` / `Advanced` difficulty rating.
 
-**Stack:** NestJS · TypeScript · Docker · GitHub REST API
+**Live demo:** https://frontend-six-inky-50.vercel.app
+
+### What Task 2 includes
+
+1. **Working Frontend** — Web interface to input repo URLs and see results
+2. **Production Backend** — Express.js API deployed to Vercel, fetches live GitHub data
+3. **V1 Scoring Model** — Current implementation with 9 core signals (activity, complexity, community)
+4. **V2 Proposal** — Strengthened model with 20+ signals, confidence intervals, and explainability
+
+### Scoring models
+
+| Model | Status | Details |
+|-------|--------|----------|
+| **V1** | ✅ Production | 9 signals, confidence score, explainable drivers |
+| **V2** | 📋 Designed | 20+ signals, temporal trends, ecosystem awareness, validation roadmap |
+
+Both models are documented in the Task 2 folder:
+- `SCORING.md` — V1 current formulas and boundaries
+- `SCORING-V2-ENHANCED.md` — V2 proposal with new signals and confidence intervals
+- `VALIDATION-STRATEGY.md` — How to validate and roll out V2 with ground truth
+- `STRENGTHENING-SUMMARY.md` — Executive summary of improvements
+
+### How mentors evaluate Task 2
+
+1. Visit the [live frontend](https://frontend-six-inky-50.vercel.app)
+2. Paste some repo URLs (e.g., `nestjs/nest`, `c2siorg/Webiu`, `sindresorhus/awesome`)
+3. Review the difficulty ratings and explainability drivers
+4. Check [Task 2 README](./Tsk2/README.md) for usage details
+
+**Stack:** Node.js · Express.js · TypeScript · Vercel (serverless) · Octokit GitHub API
+
+---
+
+## Recommended Reading Path
+
+1. Start with [Task 2 README](./Tsk2/README.md) to see what the live system does.
+2. Move to [Task 1 README](./Tsk1/README.md) for deep technical architecture and formula details.
+3. If needed, review [GSOC_IDEA.md](./GSOC_IDEA.md) for roadmap context.
 
 ---
 

@@ -1,6 +1,6 @@
-import { Difficulty, GitHubRepositoryData, RepoAnalysis, RepoExplainability } from "../models/repo.model";
+import { DataQuality, Difficulty, GitHubRepositoryData, RepoAnalysis, RepoExplainability } from "../models/repo.model";
 
-const MODEL_VERSION = "model-b-v1";
+const MODEL_VERSION = "model-b-v2";
 const MODEL_A_VERSION = "model-a-v1";
 
 function clamp(value: number, min: number, max: number): number {
@@ -24,6 +24,9 @@ interface ModelScores {
   scaleScore: number;
   frictionScore: number;
   welcomingScore: number;
+  activityMomentumScore: number;
+  ecosystemAdjustment: number;
+  dataReliabilityPenalty: number;
   activityScore: number;
   complexityScore: number;
 }
@@ -65,13 +68,68 @@ function computeWelcomingScore(data: GitHubRepositoryData): number {
 }
 
 function computeActivityScore(data: GitHubRepositoryData): number {
+  return Math.round(computeActivityMomentumScore(data) * 100);
+}
+
+function computeActivityMomentumScore(data: GitHubRepositoryData): number {
   const commits = normalizePowerLaw(data.metrics.commitsLast90d, 500);
   const closedIssues = normalizePowerLaw(data.metrics.closedIssuesLast90d, 200);
+  const releases = normalizePowerLaw(data.metrics.releasesLastYear, 24);
   const stalenessInverse = 1 - clamp(data.metrics.daysSinceLastCommit / 365, 0, 1);
   const closureRate = clamp(data.metrics.issueClosureRate, 0, 1);
 
-  const score = commits * 0.4 + closedIssues * 0.25 + stalenessInverse * 0.2 + closureRate * 0.15;
-  return Math.round(score * 100);
+  return clamp(
+    commits * 0.35 +
+      closedIssues * 0.2 +
+      releases * 0.15 +
+      stalenessInverse * 0.2 +
+      closureRate * 0.1,
+    0,
+    1
+  );
+}
+
+function computeEcosystemAdjustment(data: GitHubRepositoryData): number {
+  const language = (data.stats.primaryLanguage ?? "").toLowerCase();
+
+  const beginnerFriendly = new Set(["javascript", "typescript", "python", "go"]);
+  const moderate = new Set(["java", "c#", "kotlin", "php", "ruby"]);
+  const steeper = new Set(["c++", "rust", "swift", "scala"]);
+
+  // Multipliers above 1 increase effective difficulty; below 1 reduce it.
+  const base = beginnerFriendly.has(language) ? 0.95 : moderate.has(language) ? 1 : steeper.has(language) ? 1.08 : 1.02;
+  const setupMultiplier = data.metrics.hasDependencyFile ? 1 : 1.05;
+  const languageSpreadPenalty = clamp((data.metrics.languageCount - 8) / 20, 0, 0.08);
+
+  return clamp(base * setupMultiplier - languageSpreadPenalty, 0.85, 1.15);
+}
+
+function shouldApplyMegaComplexityGuardrail(data: GitHubRepositoryData, scores: ModelScores): boolean {
+  const explicitLargeTree = data.metrics.fileCount >= 10000;
+  const likelyLargeFallbackTree = data.dataQuality === "partial_tree" && data.metrics.fileCount >= 5000;
+  const highSystemFriction = scores.frictionScore >= 0.72;
+  const strongScale = scores.scaleScore >= 0.65;
+
+  return (explicitLargeTree || likelyLargeFallbackTree) && highSystemFriction && strongScale;
+}
+
+function computeDataReliabilityPenalty(dataQuality: DataQuality): number {
+  switch (dataQuality) {
+    case "complete":
+      return 0;
+    case "partial":
+      return 0.03;
+    case "partial_search":
+      return 0.05;
+    case "partial_tree":
+      return 0.06;
+    case "degraded":
+      return 0.12;
+    case "unavailable":
+      return 0.2;
+    default:
+      return 0.06;
+  }
 }
 
 function computeComplexityScore(data: GitHubRepositoryData): number {
@@ -79,17 +137,30 @@ function computeComplexityScore(data: GitHubRepositoryData): number {
 }
 
 function computeModelScores(data: GitHubRepositoryData): ModelScores {
+  const activityMomentumScore = computeActivityMomentumScore(data);
+
   return {
     scaleScore: computeScaleScore(data),
     frictionScore: computeFrictionScore(data),
     welcomingScore: computeWelcomingScore(data),
-    activityScore: computeActivityScore(data),
+    activityMomentumScore,
+    ecosystemAdjustment: computeEcosystemAdjustment(data),
+    dataReliabilityPenalty: computeDataReliabilityPenalty(data.dataQuality),
+    activityScore: Math.round(activityMomentumScore * 100),
     complexityScore: computeComplexityScore(data)
   };
 }
 
-function classifyDifficultyFromProbability(probabilityAdvanced: number, data: GitHubRepositoryData): Difficulty {
+function classifyDifficultyFromProbability(
+  probabilityAdvanced: number,
+  data: GitHubRepositoryData,
+  scores: ModelScores
+): Difficulty {
   if (probabilityAdvanced < 0.35) {
+    if (shouldApplyMegaComplexityGuardrail(data, scores)) {
+      return "Intermediate";
+    }
+
     if (data.metrics.daysSinceLastCommit > 90) {
       return "Intermediate";
     }
@@ -136,7 +207,9 @@ function buildExplainability(
   difficulty: Difficulty,
   pAdvanced: number,
   frictionScore: number,
-  welcomingScore: number
+  welcomingScore: number,
+  activityMomentumScore: number,
+  ecosystemAdjustment: number
 ): RepoExplainability {
   const topPositiveDrivers: string[] = [];
   const topFrictionDrivers: string[] = [];
@@ -153,6 +226,14 @@ function buildExplainability(
     topPositiveDrivers.push("Healthy issue closure ratio suggests active maintainer triage");
   }
 
+  if (data.metrics.releasesLastYear >= 6) {
+    topPositiveDrivers.push("Regular release cadence suggests a maintained and stable contribution path");
+  }
+
+  if (data.metrics.hasDependencyFile) {
+    topPositiveDrivers.push("Dependency manifest is present, making setup reproducible for newcomers");
+  }
+
   if (data.metrics.fileCount >= 2000) {
     topFrictionDrivers.push("Large effective code footprint increases navigation overhead");
   }
@@ -163,6 +244,18 @@ function buildExplainability(
 
   if (data.metrics.daysSinceLastCommit > 90) {
     topFrictionDrivers.push("Staleness signal lowers onboarding confidence");
+  }
+
+  if (activityMomentumScore <= 0.35) {
+    topFrictionDrivers.push("Low recent delivery momentum can slow feedback loops for first-time contributors");
+  }
+
+  if (!data.metrics.hasDependencyFile) {
+    topFrictionDrivers.push("No standard dependency manifest detected, increasing setup ambiguity");
+  }
+
+  if (ecosystemAdjustment > 1.05) {
+    topFrictionDrivers.push("Primary language ecosystem has a steeper onboarding curve");
   }
 
   if (data.dataQuality !== "complete") {
@@ -185,7 +278,13 @@ function buildExplainability(
   };
 }
 
-function buildNotes(data: GitHubRepositoryData, pAdvanced: number, difficulty: Difficulty, modelVersion: string): string[] {
+function buildNotes(
+  data: GitHubRepositoryData,
+  pAdvanced: number,
+  difficulty: Difficulty,
+  modelVersion: string,
+  scores: ModelScores
+): string[] {
   const notes: string[] = [];
 
   notes.push(`Model ${modelVersion} estimated ${Math.round(pAdvanced * 100)}% advanced difficulty probability`);
@@ -202,6 +301,10 @@ function buildNotes(data: GitHubRepositoryData, pAdvanced: number, difficulty: D
     notes.push("Beginner promotion was blocked by staleness guardrail (>90 days without recent push)");
   }
 
+  if (shouldApplyMegaComplexityGuardrail(data, scores) && difficulty === "Intermediate") {
+    notes.push("Beginner promotion was blocked by mega-complexity guardrail for large-scale repository surface area");
+  }
+
   if (data.dataQuality !== "complete") {
     notes.push(`Data quality was ${data.dataQuality}; fallback-safe scoring was applied`);
   }
@@ -210,29 +313,42 @@ function buildNotes(data: GitHubRepositoryData, pAdvanced: number, difficulty: D
 }
 
 class ConfidenceWeightedStrategy implements IClassifierStrategy {
-  private readonly alpha = 1.5;
-  private readonly beta = 0.2;
+  private readonly alpha = 1.45;
+  private readonly beta = 0.22;
+  private readonly gamma = 0.35;
+  private readonly delta = 0.4;
+  private readonly k = 3.4;
+  private readonly tau = 0.26;
 
   classify(data: GitHubRepositoryData): ClassificationOutcome {
     const scores = computeModelScores(data);
     const rawDifficulty =
-      scores.frictionScore - scores.welcomingScore * this.alpha - scores.scaleScore * this.beta;
-    const pAdvanced = sigmoid(rawDifficulty);
+      scores.frictionScore * 0.55 -
+      scores.welcomingScore * this.alpha -
+      scores.scaleScore * this.beta +
+      (1 - scores.activityMomentumScore) * this.gamma;
 
-    const difficulty = classifyDifficultyFromProbability(pAdvanced, data);
+    const adjustedDifficulty =
+      rawDifficulty * scores.ecosystemAdjustment + scores.dataReliabilityPenalty * this.delta;
+
+    const pAdvanced = sigmoid(adjustedDifficulty, this.k, this.tau);
+
+    const difficulty = classifyDifficultyFromProbability(pAdvanced, data, scores);
     const explainability = buildExplainability(
       data,
       difficulty,
       pAdvanced,
       scores.frictionScore,
-      scores.welcomingScore
+      scores.welcomingScore,
+      scores.activityMomentumScore,
+      scores.ecosystemAdjustment
     );
 
     return {
       difficulty,
       confidenceScore: Number(pAdvanced.toFixed(4)),
       modelVersion: MODEL_VERSION,
-      notes: buildNotes(data, pAdvanced, difficulty, MODEL_VERSION),
+      notes: buildNotes(data, pAdvanced, difficulty, MODEL_VERSION, scores),
       explainability
     };
   }
@@ -250,14 +366,16 @@ class RulesBasedStrategy implements IClassifierStrategy {
       difficulty,
       pAdvanced,
       scores.frictionScore,
-      scores.welcomingScore
+      scores.welcomingScore,
+      scores.activityMomentumScore,
+      scores.ecosystemAdjustment
     );
 
     return {
       difficulty,
       confidenceScore: pAdvanced,
       modelVersion: MODEL_A_VERSION,
-      notes: buildNotes(data, pAdvanced, difficulty, MODEL_A_VERSION),
+      notes: buildNotes(data, pAdvanced, difficulty, MODEL_A_VERSION, scores),
       explainability
     };
   }

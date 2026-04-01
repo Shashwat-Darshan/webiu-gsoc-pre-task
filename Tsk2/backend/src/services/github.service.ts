@@ -16,6 +16,8 @@ export interface GitHubServiceOptions {
   concurrencyLimit: number;
   rateLimitStopThreshold: number;
   treeTimeoutMs?: number;
+  cacheTtlMs?: number;
+  cacheMaxEntries?: number;
 }
 
 interface ServiceState {
@@ -27,6 +29,11 @@ interface TreeMetrics {
   folderDepth: number;
   hasDependencyFile: boolean;
   usedFallback: boolean;
+}
+
+interface CacheEntry {
+  value: GitHubRepositoryResult;
+  expiresAt: number;
 }
 
 type LimitFunction = <T>(task: () => Promise<T>) => Promise<T>;
@@ -119,6 +126,7 @@ export class GitHubService {
   private readonly searchRequestLimiter: LimitFunction;
   private readonly options: GitHubServiceOptions;
   private readonly state: ServiceState = { rateLimitStop: false };
+  private readonly cache = new Map<string, CacheEntry>();
 
   constructor(options: GitHubServiceOptions) {
     this.options = options;
@@ -130,8 +138,9 @@ export class GitHubService {
     this.state.rateLimitStop = false;
 
     const octokit = await this.createClient(token);
+    const authMode = token ?? this.options.defaultToken ? "auth" : "anon";
 
-    const jobs = repoUrls.map((repoUrl) => this.fetchOne(octokit, repoUrl));
+    const jobs = repoUrls.map((repoUrl) => this.fetchOne(octokit, repoUrl, authMode));
 
     return Promise.all(jobs);
   }
@@ -148,7 +157,7 @@ export class GitHubService {
     });
   }
 
-  private async fetchOne(octokit: Octokit, repoUrl: string): Promise<GitHubRepositoryResult> {
+  private async fetchOne(octokit: Octokit, repoUrl: string, authMode: "auth" | "anon"): Promise<GitHubRepositoryResult> {
     if (this.state.rateLimitStop) {
       return this.toErrorResult(
         {
@@ -176,6 +185,13 @@ export class GitHubService {
         },
         undefined
       );
+    }
+
+    const cacheKey = this.buildCacheKey(repoRef, authMode);
+    const cached = this.getCachedResult(cacheKey);
+
+    if (cached) {
+      return cached;
     }
 
     try {
@@ -250,7 +266,7 @@ export class GitHubService {
         languageCount: Object.keys(languages).length
       };
 
-      return {
+      const result: GitHubRepositoryResult = {
         ok: true,
         data: {
           repo: repoRef,
@@ -261,8 +277,11 @@ export class GitHubService {
           dataQuality
         }
       };
+
+      this.setCachedResult(cacheKey, result);
+      return result;
     } catch (error) {
-      return this.toErrorResult(
+      const result = this.toErrorResult(
         {
           repo: repoRef.fullName,
           url: repoRef.url,
@@ -271,6 +290,76 @@ export class GitHubService {
         },
         error
       );
+
+      if (!result.ok && result.error.statusCode !== 404) {
+        this.setCachedResult(cacheKey, result);
+      }
+
+      return result;
+    }
+  }
+
+  private buildCacheKey(repo: GitHubRepoRef, authMode: "auth" | "anon"): string {
+    return `${authMode}:${repo.fullName.toLowerCase()}`;
+  }
+
+  private getCachedResult(cacheKey: string): GitHubRepositoryResult | null {
+    const ttlMs = this.options.cacheTtlMs ?? 0;
+
+    if (ttlMs <= 0) {
+      return null;
+    }
+
+    const entry = this.cache.get(cacheKey);
+
+    if (!entry) {
+      return null;
+    }
+
+    if (Date.now() >= entry.expiresAt) {
+      this.cache.delete(cacheKey);
+      return null;
+    }
+
+    return entry.value;
+  }
+
+  private setCachedResult(cacheKey: string, value: GitHubRepositoryResult): void {
+    const ttlMs = this.options.cacheTtlMs ?? 0;
+
+    if (ttlMs <= 0) {
+      return;
+    }
+
+    this.pruneExpiredCache();
+
+    const maxEntries = this.options.cacheMaxEntries ?? 500;
+    while (this.cache.size >= maxEntries) {
+      const oldestKey = this.cache.keys().next().value;
+
+      if (!oldestKey) {
+        break;
+      }
+
+      this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + ttlMs
+    });
+  }
+
+  private pruneExpiredCache(): void {
+    if (this.cache.size === 0) {
+      return;
+    }
+
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.cache.delete(key);
+      }
     }
   }
 
