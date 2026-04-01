@@ -20,7 +20,18 @@ export function RepoCard({ analysis, onSelect }: RepoCardProps) {
   const confidence = analysis.confidence_score !== null ? `${(analysis.confidence_score * 100).toFixed(1)}%` : "N/A";
 
   return (
-    <article className="repo-card">
+    <article
+      className="repo-card"
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(analysis)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(analysis);
+        }
+      }}
+    >
       <header className="repo-card-head">
         <div className="repo-card-title-wrap">
           <h3>{analysis.repo}</h3>
@@ -65,10 +76,6 @@ export function RepoCard({ analysis, onSelect }: RepoCardProps) {
       <ScoreBar label="Complexity" score={analysis.complexity_score} />
 
       {analysis.error ? <p className="error-text">{analysis.error}</p> : null}
-
-      <button className="details-btn" onClick={() => onSelect(analysis)}>
-        View full analysis
-      </button>
     </article>
   );
 }

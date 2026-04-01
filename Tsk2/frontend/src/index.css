@@ -389,10 +389,20 @@ select:focus,
   display: grid;
   gap: 0.52rem;
   animation: fade-up 240ms ease-out;
+  cursor: pointer;
+  transition: all 180ms ease-out;
 }
 
 .repo-card:hover {
-  border-color: #bdd5ce;
+  border-color: var(--teal);
+  box-shadow: 0 8px 24px rgba(16, 106, 102, 0.12);
+  transform: translateY(-2px);
+}
+
+.repo-card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus), 0 8px 24px rgba(16, 106, 102, 0.12);
+  border-color: var(--teal);
 }
 
 .repo-card-title-wrap {
