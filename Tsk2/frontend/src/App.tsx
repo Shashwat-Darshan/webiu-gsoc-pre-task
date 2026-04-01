@@ -91,7 +91,7 @@ function buildErrorResult(repo: string, message: string): RepoAnalysis {
 
 function App() {
   const [batchInput, setBatchInput] = useState<string>(
-    "https://github.com/c2siorg/Webiu\nhttps://github.com/c2siorg/Splitter\nhttps://github.com/OWASP/nest\nhttps://github.com/OWASP/Top10\nhttps://github.com/torvalds/linux\nhttps://github.com/golang/go"
+    "https://github.com/golang/go\nhttps://github.com/c2siorg/Webiu\nhttps://github.com/OWASP/Top10\nhttps://github.com/c2siorg/b0bot\nhttps://github.com/Shashwat-Darshan/webiu-gsoc-pre-task\nhttps://github.com/OWASP/nest"
   );
   const [token, setToken] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);

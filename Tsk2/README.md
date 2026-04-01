@@ -55,6 +55,7 @@ If you see historical sample output with `model-b-v1`, treat it as legacy output
 - **Efficiency & Rate Limiting:** 
   - Integrated GitHub PAT configuration to seamlessly bypass unauthenticated limits (scaling from *60 → 5000 requests/hour*).
   - Backend implements an intelligent concurrency limiter to actively prevent secondary rate-limit bans.
+  - **Smart Response Caching:** In-memory TTL cache (default 5 minutes) stores analyzed repos for instant retrieval on repeated queries, dramatically reducing API calls and response times.
 - **Graceful Degradation:** If a repository's tree is excessively huge or data is temporarily missing, the engine falls back safely using `data_quality` states (`partial_search`, `partial_tree`, `degraded`) instead of crashing.
 - **CI/CD Quality Control:** **GitHub Actions** runs quality checks (lint/build) while **Vercel** handles automated production deployments.
 

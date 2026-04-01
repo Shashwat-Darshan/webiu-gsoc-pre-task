@@ -83,6 +83,9 @@ export function RepoInputForm({
       </p>
       <p className="hint">Accepted formats: `owner/repo`, `github.com/owner/repo`, or full GitHub URL.</p>
       <p className="hint">If some lines are invalid, valid lines will still be analyzed.</p>
+      <p className="hint">
+        💾 <strong>Smart caching enabled:</strong> Repeated analyses of the same repos within 5 minutes return instant cached results. Fetches fresh data after expiration.
+      </p>
 
       <div className="validation-row">
         <p>{validCount} valid / {totalCount} total entries</p>
