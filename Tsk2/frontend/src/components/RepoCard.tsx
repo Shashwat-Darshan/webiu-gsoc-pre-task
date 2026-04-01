@@ -76,6 +76,10 @@ export function RepoCard({ analysis, onSelect }: RepoCardProps) {
       <ScoreBar label="Complexity" score={analysis.complexity_score} />
 
       {analysis.error ? <p className="error-text">{analysis.error}</p> : null}
+
+      <button className="details-btn" onClick={() => onSelect(analysis)}>
+        View full analysis
+      </button>
     </article>
   );
 }
