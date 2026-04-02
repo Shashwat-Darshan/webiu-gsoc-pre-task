@@ -77,8 +77,15 @@ export function RepoCard({ analysis, onSelect }: RepoCardProps) {
 
       {analysis.error ? <p className="error-text">{analysis.error}</p> : null}
 
-      <button className="details-btn" onClick={() => onSelect(analysis)}>
-        View full analysis
+      <button
+        className="details-btn"
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(analysis);
+        }}
+      >
+        View details ↗
       </button>
     </article>
   );
